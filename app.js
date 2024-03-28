@@ -1,10 +1,24 @@
 const express = require('express');
+const mongoose = require('mongoose');
+const multer = require('multer');
+const NFT = require('./models/NFT');
 const fs = require('fs');
 
 const app = express();
 const port = 3004;
 
-app.use(express.json());
+mongoose.connect('mongodb://localhost:27017/NFT');
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.originalname);
+    },
+});
+
+const upload = multer({ storage });
 
 const getContractABI = () => {
     return new Promise((resolve, reject) => {
@@ -55,6 +69,29 @@ app.get('/contract-abi', (req, res) => {
             res.status(500).json({ error: 'Internal Server Error' });
         });
 });
+
+app.post('/mint', upload.single('image'), (req, res) => {
+    const { name, uri } = req.body;
+    const image = req.file.filename;
+
+    const newToken = new NFT({
+        name,
+        uri,
+        image,
+    });
+
+    newToken
+        .save()
+        .then(() => {
+            res.status(200).json({ message: 'Token minted successfully' });
+        })
+        .catch((error) => {
+            console.error('Error minting tokens:', error);
+            res.status(500).json({ error: 'Internal Server Error' });
+        });
+});
+
+app.use('/uploads', express.static('uploads'));
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

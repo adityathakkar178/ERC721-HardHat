@@ -92,6 +92,15 @@ app.post('/mint', upload.single('image'), (req, res) => {
         });
 });
 
+app.get('/nft', async (req, res) => {
+    NFT.find().then((nfts) => {
+        res.json(nfts);
+    }).catch((err) => {
+        console.error("Error recieveing NFTs", err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    });
+});
+
 app.use('/uploads', express.static('uploads'));
 
 app.listen(port, () => {

@@ -72,12 +72,10 @@ app.get('/contract-abi', (req, res) => {
 
 app.post('/mint', upload.single('image'), (req, res) => {
     const { name, uri, address } = req.body;
-    const image = req.file.filename;
 
     const newToken = new NFT({
         name,
         uri,
-        image,
         address
     });
 

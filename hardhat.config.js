@@ -1,6 +1,9 @@
 /** @type import('hardhat/config').HardhatUserConfig */
-require("@nomicfoundation/hardhat-toolbox");
-require('@nomicfoundation/hardhat-network-helpers');
+require('dotenv').config();
+require('@nomiclabs/hardhat-ethers');
+
+const { API_URL, PRIVATE_KEY } = process.env;
+
 module.exports = {
   solidity: {
     version: "0.8.24",
@@ -9,6 +12,13 @@ module.exports = {
         enabled: true,
         runs: 1000,
       },
+    },
+  },
+  networks: {
+    hardhat: {},
+    sepolia: {
+      url: API_URL,
+      accounts: [PRIVATE_KEY],
     },
   },
 };

@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const NFT = require('./models/NFT');
+const pinataSDK = require('@pinata/sdk');
 const fs = require('fs');
 
 const app = express();
@@ -19,6 +20,11 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+const pinata = new pinataSDK(
+    'a8bd0c03d1195c3d2d7b',
+    '3de90fbbc2eedb0609c0ce2528098b7f86396c8b44670e5a5612049ba4ffd8dc'
+);
 
 const getContractABI = () => {
     return new Promise((resolve, reject) => {
@@ -70,33 +76,56 @@ app.get('/contract-abi', (req, res) => {
         });
 });
 
-app.post('/mint', upload.single('image'), (req, res) => {
-    const { name, uri, address } = req.body;
-
-    const newToken = new NFT({
-        name,
-        uri,
-        address
-    });
-
-    newToken
-        .save()
-        .then(() => {
-            res.status(200).json({ message: 'Token minted successfully' });
-        })
-        .catch((error) => {
-            console.error('Error minting tokens:', error);
-            res.status(500).json({ error: 'Internal Server Error' });
+app.post('/mint', upload.single('image'), async (req, res) => {
+    try {
+        const { name, description, address } = req.body;
+        const fileStream = fs.createReadStream(req.file.path);
+        const imagePinataResponse = await pinata.pinFileToIPFS(fileStream, {
+            pinataMetadata: {
+                name: req.file.originalname,
+            },
         });
+
+        const imageLink = `https://gateway.pinata.cloud/ipfs/${imagePinataResponse.IpfsHash}`;
+
+        const metadata = {
+            name,
+            description,
+            image: imageLink,
+            address,
+        };
+
+        const metadataPinataResponse = await pinata.pinJSONToIPFS(metadata);
+        const metadataCID = metadataPinataResponse.IpfsHash;
+        const newToken = new NFT({
+            name,
+            description,
+            image: imageLink,
+            address,
+            metadataCID: `ipfs://${metadataCID}`,
+        });
+
+        await newToken.save();
+
+        res.status(200).json({
+            message: 'Token minted successfully',
+            metadataCID,
+        });
+    } catch (error) {
+        console.error('Error minting tokens:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
 app.get('/nft', async (req, res) => {
-    NFT.find().then((nfts) => {
-        res.json(nfts);
-    }).catch((err) => {
-        console.error("Error recieveing NFTs", err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    });
+    NFT.find()
+        .then((nfts) => {
+            res.json(nfts);
+        })
+        .catch((err) => {
+            console.error('Error recieveing NFTs', err);
+            res.status(500).json({ error: 'Internal Server Error' });
+        });
 });
 
 app.use('/uploads', express.static('uploads'));
